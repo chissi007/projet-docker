@@ -1,4 +1,5 @@
-FROM spark-base
+ARG spark_version=3.0.0
+FROM spark-base:${spark_version}
 
 # -- Runtime
 
