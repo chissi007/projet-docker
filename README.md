@@ -35,3 +35,7 @@ docker-compose up
 
 8. Stop the cluster by typing ctrl+c on the terminal;
 9. Run step 6 to restart the cluster.
+
+## Architecture
+
+![Alt text](https://github.com/chissi007/projet-docker/blob/main/build/workspace/data/architecture.png?raw=true "Title")
