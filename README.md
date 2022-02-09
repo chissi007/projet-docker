@@ -73,11 +73,80 @@ CMD ["bash"]
 ### Spark base image
 For the Spark base image, we will get and setup Apache Spark in standalone mode, its simplest deploy configuration. In this mode, we will be using its resource manager to setup containers to run either as a master or a worker node. In contrast, resources managers such as Apache YARN dynamically allocates containers as master or worker nodes according to the user workload. Furthermore, we will get an Apache Spark version with Apache Hadoop support to allow the cluster to simulate the HDFS using the shared volume created in the base cluster image.
 
+```javascript
+FROM cluster-base
+
+# -- Layer: Apache Spark
+
+ARG spark_version=3.0.0
+ARG hadoop_version=2.7
+
+RUN apt-get update -y && \
+    apt-get install -y curl && \
+    curl https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz && \
+    tar -xf spark.tgz && \
+    mv spark-${spark_version}-bin-hadoop${hadoop_version} /usr/bin/ && \
+    mkdir /usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}/logs && \
+    rm spark.tgz
+
+ENV SPARK_HOME /usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}
+ENV SPARK_MASTER_HOST spark-master
+ENV SPARK_MASTER_PORT 7077
+ENV PYSPARK_PYTHON python3
+
+# -- Runtime
+
+WORKDIR ${SPARK_HOME}
+```
+
 ### Spark master image
 For the Spark master image, we will set up the Apache Spark application to run as a master node. We will configure network ports to allow the network connection with worker nodes and to expose the master web UI, a web page to monitor the master node activities. In the end, we will set up the container startup command for starting the node as a master instance.
+
+```javascript
+ARG spark_version=3.0.0
+FROM spark-base:${spark_version}
+
+# -- Runtime
+
+ARG spark_master_web_ui=8080
+
+EXPOSE ${spark_master_web_ui} ${SPARK_MASTER_PORT}
+CMD bin/spark-class org.apache.spark.deploy.master.Master >> logs/spark-master.out
+```
 
 ### Spark worker image
 For the Spark worker image, we will set up the Apache Spark application to run as a worker node. Similar to the master node, we will configure the network port to expose the worker web UI, a web page to monitor the worker node activities, and set up the container startup command for starting the node as a worker instance.
 
+```javascript
+ARG spark_version=3.0.0
+FROM spark-base:${spark_version}
+
+# -- Runtime
+
+ARG spark_worker_web_ui=8081
+
+EXPOSE ${spark_worker_web_ui}
+CMD bin/spark-class org.apache.spark.deploy.worker.Worker spark://${SPARK_MASTER_HOST}:${SPARK_MASTER_PORT} >> logs/spark-worker.out
+```
+
 ### JupyterLab image
 For the JupyterLab image, we go back a bit and start again from the cluster base image. We will install and configure the IDE along with a slightly different Apache Spark distribution from the one installed on Spark nodes.
+
+```javascript
+FROM cluster-base
+
+# -- Layer: JupyterLab
+
+ARG spark_version=3.0.0
+ARG jupyterlab_version=2.1.5
+
+RUN apt-get update -y && \
+    apt-get install -y python3-pip && \
+    pip3 install wget pyspark==${spark_version} jupyterlab==${jupyterlab_version}
+
+# -- Runtime
+
+EXPOSE 8888
+WORKDIR ${SHARED_WORKSPACE}
+CMD jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=
+```
