@@ -47,6 +47,28 @@ The cluster is composed of four main components: the JupyterLab IDE, the Spark m
 ### Cluster base image
 The cluster base image will download and install common software tools (Java, Python, etc.) and will create the shared directory for the HDFS.
 We are using a Linux distribution to install Java 8 (or 11), Apache Spark only requirement. We also need to install Python 3 for PySpark support and to create the shared volume to simulate the HDFS.
+```javascript
+ARG debian_buster_image_tag=8-jre-slim
+FROM openjdk:${debian_buster_image_tag}
+
+# -- Layer: OS + Python 3.7
+
+ARG shared_workspace=/opt/workspace
+
+RUN mkdir -p ${shared_workspace} && \
+    apt-get update -y && \
+    apt-get install -y python3 && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV SHARED_WORKSPACE=${shared_workspace}
+
+# -- Runtime
+
+VOLUME ${shared_workspace}
+CMD ["bash"]
+
+```
 
 ### Spark base image
 For the Spark base image, we will get and setup Apache Spark in standalone mode, its simplest deploy configuration. In this mode, we will be using its resource manager to setup containers to run either as a master or a worker node. In contrast, resources managers such as Apache YARN dynamically allocates containers as master or worker nodes according to the user workload. Furthermore, we will get an Apache Spark version with Apache Hadoop support to allow the cluster to simulate the HDFS using the shared volume created in the base cluster image.
